@@ -1,0 +1,225 @@
+<html><head></head><body><div class="apidocDiv">
+<style>
+/*csslint
+*/
+.apidocDiv {
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+}
+.apidocDiv a[href] {
+    color: #33f;
+    font-weight: bold;
+    text-decoration: none;
+}
+.apidocDiv a[href]:hover {
+    text-decoration: underline;
+}
+.apidocCodeCommentSpan {
+    background: #bbf;
+    color: #000;
+    display: block;
+}
+.apidocCodeKeywordSpan {
+    color: #d00;
+    font-weight: bold;
+}
+.apidocCodePre {
+    background: #eef;
+    border: 1px solid;
+    color: #777;
+    padding: 5px;
+    white-space: pre-wrap;
+}
+.apidocFooterDiv {
+    margin-top: 20px;
+    text-align: center;
+}
+.apidocModuleLi {
+    margin-top: 10px;
+}
+.apidocSectionDiv {
+    border-top: 1px solid;
+    margin-top: 20px;
+}
+.apidocSignatureSpan {
+    color: #777;
+    font-weight: bold;
+}
+</style>
+<h1>api documentation for
+    <a href="https://github.com/JamieMason/grunt-imageoptim">grunt-imageoptim (v1.4.3)</a>
+</h1>
+<h4>Automate ImageOptim, ImageAlpha, and JPEGmini</h4>
+<div class="apidocSectionDiv"><a href="#apidoc.tableOfContents" id="apidoc.tableOfContents"><h1>table of contents</h1></a><ol>
+
+    <li class="apidocModuleLi"><a href="#apidoc.module.grunt-imageoptim">module grunt-imageoptim</a><ol>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.grunt-imageoptim.grunt-imageoptim">
+            function <span class="apidocSignatureSpan"></span>grunt-imageoptim
+            <span class="apidocSignatureSpan">(grunt)</span>
+            </a>
+
+        </li>
+
+    </ol></li>
+
+</ol></div>
+
+<div class="apidocSectionDiv">
+<h1><a href="#apidoc.module.grunt-imageoptim" id="apidoc.module.grunt-imageoptim">module grunt-imageoptim</a></h1>
+
+
+    <h2>
+        <a href="#apidoc.element.grunt-imageoptim.grunt-imageoptim" id="apidoc.element.grunt-imageoptim.grunt-imageoptim">
+        function <span class="apidocSignatureSpan"></span>grunt-imageoptim
+        <span class="apidocSignatureSpan">(grunt)</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">grunt-imageoptim = function (grunt) {
+  'use strict';
+
+  var q = require('q');
+  var path = require('path');
+  var childProcess = require('child_process');
+  var exec = childProcess.exec;
+  var spawn = childProcess.spawn;
+  var gruntFile = path.resolve();
+  var taskName = 'imageoptim';
+  var issuesPage = 'https://github.com/JamieMason/grunt-imageoptim/issues/new';
+  var taskDescription = 'Losslessly compress images from the command line';
+  var cliPaths = [
+    '../node_modules/imageoptim-cli/bin',
+    '../../imageoptim-cli/bin'
+  ].map(function (dir) {
+    return path.resolve(__dirname, dir);
+  });
+
+  (function () {
+    var config = grunt.config.data.imageoptim || {};
+    var tasks = config ? [config] : [];
+    var hasDeprecatedConfig = false;
+    var error = '';
+
+    Object.keys(config).forEach(function (key) {
+      var value = config[key];
+      var isObject = value &amp;&amp; typeof value === 'object';
+      var isTask = isObject &amp;&amp; key !== 'options' &amp;&amp; key !== 'files';
+      if (isTask) {
+        tasks.push(value);
+      }
+    });
+
+    hasDeprecatedConfig = tasks.some(function (task) {
+      return 'files' in task &amp;&amp; task.files.some(function (member) {
+        return typeof member === 'string';
+      });
+    });
+
+    if (hasDeprecatedConfig) {
+      error += '\n';
+      error += 'grunt-imageoptim 1.4.0 brought a change to it\'s configuration to bring full ';
+      error += 'support for Grunt\'s file pattern matching.';
+      error += '\n';
+      error += 'In most cases all this means is renaming the "files" property to "src", but ';
+      error += 'updated examples can be found at https://github.com/JamieMason/grunt-imageoptim.';
+      grunt.fail.fatal(error);
+    }
+  })();
+
+<span class="apidocCodeCommentSpan">  /**
+   * Get the ImageOptim-CLI Terminal command to be run for a given directory and task options
+   * @param  {String} directory
+   * @param  {Object} options
+   * @return {String}
+   */
+</span>
+  function getCommandByDirectory(directory, options) {
+    var command = './imageOptim';
+    command += options.quitAfter ? ' --quit' : '';
+    command += options.imageAlpha ? ' --image-alpha' : '';
+    command += options.jpegMini ? ' --jpeg-mini' : '';
+    return command + ' --directory ' + directory.replace(/\s/g, '\\ ');
+  }
+
+  /**
+   * @param  {String} command
+   * @param  {String} cwd
+   * @return {Promise}
+   */
+
+  function executeDirectoryCommand(command, cwd) {
+    var deferred = q.defer();
+    var errorMessage = 'ImageOptim-CLI exited with a failure status';
+    var imageOptimCli = exec(command, {
+      cwd: cwd
+    });
+
+    imageOptimCli.stdout.on('data', function (message) {
+      console.log(String(message || '').replace(/\n+$/, ''));
+    });
+
+    imageOptimCli.on('exit', function (code) {
+      return code === 0 ? deferred.resolve(true) : deferred.reject(new Error(errorMessage));
+    });
+
+    return deferred.promise;
+  }
+
+  /**
+   * @param  {String[]}  files             Array of paths to directories from src: in config.
+   * @param  {Boolean}   opts.jpegMini     Whether to run JPEGmini.app.
+   * @param  {Boolean}   opts.imageAlpha   Whether to run ImageAlpha.app.
+   * @param  {Boolean}   opts.quitAfter    Whether to quit apps after running.
+   * @return {Promise}
+   */
+
+  function processDirectories(files, opts) {
+    return files.map(function (directory) {
+      return getCommandByDirectory(directory, opts);
+    }).reduce(function (promise, command) {
+      return promise.then(function () {
+        return executeDirectoryCommand(command, opts.cliPath);
+      });
+    }, q());
+  }
+
+  /**
+   * include necessary command line flags based on the current task's options
+   * @param  {Object} opts
+   * @return {Array}
+   */
+
+  function getCliFlags(opts) {
+    var cliOptions = [];
+    if (opts.quitAfter) {
+      cliOptions.push('--quit');
+    }
+    if (opts.imageAlpha) {
+      cliOptions.push('--image-alpha');
+    }
+    if (opts.jpegMini) {
+      cliOptions.push('--jpeg-mini');
+    }
+    return cliOptions;
+  }
+
+  /**
+   * @param  {String[]}  files             Array of paths to files from src: in config.
+   * @param  {Boolean}   opts.jpegMini     Whether to run JPEGmini.app.
+   * ...</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
+
+</div>
+
+<div class="apidocFooterDiv">
+    [ this document was created with
+    <a href="https://github.com/kaizhu256/node-utility2" target="_blank">utility2</a>
+    ]
+</div>
+</div>
+</body></html>
